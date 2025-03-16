@@ -51,4 +51,17 @@ public class FileManager {
         return blockSize;
     }
 
+    public int fileLength(String fileName) throws IOException{
+        RandomAccessFile file = getFile(fileName);
+        return (int) file.length() / blockSize;
+    }
+    public BlockID appendBlock(String fileName) throws IOException{
+        RandomAccessFile file = getFile(fileName);
+        int length = fileLength(fileName);
+        BlockID block = new BlockID(fileName, length);
+        write(block, new Page(blockSize));
+
+        return block;
+    }
+
 }

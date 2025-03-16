@@ -8,6 +8,10 @@ public class Page {
     private ByteBuffer bb;
     private final Charset CHARSET = StandardCharsets.UTF_8;
 
+    public Charset getCHARSET() {
+        return CHARSET;
+    }
+
     public Page(int blockSize){
         bb = ByteBuffer.allocate(blockSize);
     }

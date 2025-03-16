@@ -1,6 +1,6 @@
 package org.foxdb.file;
 
-import org.junit.jupiter.api.Assertions;
+import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -12,6 +12,7 @@ public class FileMangerTest {
     public void CreateDB(){
         FileManager fm = new FileManager(new File("./testdb"), 400);
         assert(fm!=null);
+
     }
 
     @Test
@@ -25,6 +26,7 @@ public class FileMangerTest {
             throw new RuntimeException(e);
         }
 
+
     }
 
     @Test
@@ -35,6 +37,12 @@ public class FileMangerTest {
             fm.read(new BlockID("./testdb/testtable.tbl", 27), p);
             String str = p.getString(20);
             assert(str.equals("Aman Bhatt"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        try {
+            FileUtils.deleteDirectory(new File("./testdb"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

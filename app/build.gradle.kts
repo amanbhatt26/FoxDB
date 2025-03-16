@@ -18,6 +18,7 @@ repositories {
 dependencies {
     // Use JUnit Jupiter for testing.
     testImplementation(libs.junit.jupiter)
+    implementation("commons-io:commons-io:2.18.0")
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
