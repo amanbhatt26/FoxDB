@@ -59,7 +59,7 @@ public class Buffer {
 
     }
 
-    public void setModifier(int txn, int lsn){
+    public void setModified(int txn, int lsn){
         this.txn = txn;
         this.lsn = lsn;
     }

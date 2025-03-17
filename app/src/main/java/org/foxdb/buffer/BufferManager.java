@@ -4,6 +4,8 @@ import org.foxdb.file.BlockID;
 import org.foxdb.file.FileManager;
 import org.foxdb.log.LogManager;
 
+// Responsible for reading Blocks from disk and caching them transparently
+// Anyone who want to read some disk block , come to buffer manager
 public class BufferManager {
 
     private FileManager fm;

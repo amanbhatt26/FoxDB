@@ -6,7 +6,35 @@ import java.nio.charset.StandardCharsets;
 
 public class Page {
     private ByteBuffer bb;
-    private final Charset CHARSET = StandardCharsets.UTF_8;
+    private static final Charset CHARSET = StandardCharsets.UTF_8;
+    int offset = 0;
+    public void position(int offset){
+        this.offset = offset;
+    }
+
+    public void setInt(int val){
+        setInt(this.offset, val);
+        this.offset += Integer.BYTES;
+    }
+
+    public void setString(String val){
+        setString(this.offset, val);
+        this.offset += val.getBytes(CHARSET).length + Integer.BYTES;
+    }
+
+    public int getInt(){
+        int val = getInt(this.offset);
+        this.offset += Integer.BYTES;
+        return val;
+    }
+
+    public String getString(){
+        String val = getString(this.offset);
+        this.offset += val.getBytes(CHARSET).length + Integer.BYTES;
+        return val;
+    }
+
+
 
     public Charset getCHARSET() {
         return CHARSET;
@@ -54,5 +82,9 @@ public class Page {
 
     protected ByteBuffer getByteBuffer(){
         return bb;
+    }
+
+    public static int stringBytesNeeded(String val){
+        return Integer.BYTES + val.getBytes(CHARSET).length;
     }
 }
