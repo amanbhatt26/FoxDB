@@ -26,7 +26,7 @@ public class SlottedPage {
         return p.capacity();
     }
 
-    boolean canInsert(byte[] b){
+    public boolean canInsert(byte[] b){
         int bytesNeeded = b.length + Integer.BYTES;
         p.position(0);
 

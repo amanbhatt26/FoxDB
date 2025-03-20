@@ -6,49 +6,38 @@ import java.nio.charset.StandardCharsets;
 
 public class Page {
     private ByteBuffer bb;
-    private static final Charset CHARSET = StandardCharsets.UTF_8;
-    int offset = 0;
+    public static final Charset CHARSET = StandardCharsets.UTF_8;
 
     public int capacity(){
         return bb.capacity();
     }
     public void position(int offset){
-        this.offset = offset;
+        this.bb.position(offset);
     }
 
     public void setInt(int val){
-        setInt(this.offset, val);
-        this.offset += Integer.BYTES;
+        bb.putInt(val);
     }
 
     public void setString(String val){
-        setString(this.offset, val);
-        this.offset += val.getBytes(CHARSET).length + Integer.BYTES;
+        setString(bb.position(), val);
     }
 
     public int getInt(){
-        int val = getInt(this.offset);
-        this.offset += Integer.BYTES;
-        return val;
+        return bb.getInt();
     }
 
     public String getString(){
-        String val = getString(this.offset);
-        this.offset += val.getBytes(CHARSET).length + Integer.BYTES;
-        return val;
-    }
-
-
-
-    public Charset getCHARSET() {
-        return CHARSET;
+        return getString(bb.position());
     }
 
     public Page(int blockSize){
         bb = ByteBuffer.allocate(blockSize);
+        position(0);
     }
     public Page(byte[] b){
         bb = ByteBuffer.wrap(b);
+        position(0);
     }
 
     public int getInt(int offSet){
@@ -75,6 +64,19 @@ public class Page {
         byte[] b = new byte[length];
         bb.get(b);
         return b;
+    }
+
+    public byte[] getBytes(){
+        int position = bb.position();
+        byte[] b = getBytes(position);
+        position(position + Integer.BYTES + b.length);
+        return b;
+    }
+
+    public void setBytes(byte[] b){
+        int position = bb.position();
+        setBytes(position, b);
+        position(position + Integer.BYTES + b.length);
     }
 
 

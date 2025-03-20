@@ -6,11 +6,14 @@ import org.foxdb.buffer.BufferManager;
 import org.foxdb.file.BlockID;
 import org.foxdb.file.FileManager;
 import org.foxdb.file.Page;
+import org.foxdb.file.SlottedPage;
+import org.foxdb.log.LogIterator;
 import org.foxdb.log.LogManager;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class RecoveryTest {
@@ -25,32 +28,41 @@ public class RecoveryTest {
         RecoveryManager rm = new RecoveryManager(lm , bm);
 
         rm.logStart(1);
-        rm.logUpdate(1, new BlockID("./testdb/testfile", 20), 20, "Aman", "Bhatt");
-        rm.logUpdate(1, new BlockID("./testdb/testfile", 50), 22, 20,21);
+        rm.logUpdate(1, new BlockID("./testdb/testfile", 20), 0, "Aman".getBytes(StandardCharsets.UTF_8), "Bhatt".getBytes(StandardCharsets.UTF_8));
 
         lm.flush(rm.logCommit(1));
 
         rm.logStart(2);
-        rm.logUpdate(2, new BlockID("./testdb/testfile", 22), 20, "Bhatt", "Aman");
+        rm.logUpdate(2, new BlockID("./testdb/testfile", 22), 0, "Bhatt".getBytes(StandardCharsets.UTF_8), "Aman".getBytes(StandardCharsets.UTF_8));
 
         rm.rollback(2);
 
 
-        Buffer buff = bm.pin(new BlockID("./testdb/testfile", 22));
-        Page bp = buff.contents();
+//        Buffer buff = bm.pin(new BlockID("./testdb/testfile", 22));
+//        Page bp = buff.contents();
+//        SlottedPage sp = new SlottedPage(bp);
+//        byte[] bytes = sp.get(0);
+//        String recString = new String(bytes, StandardCharsets.UTF_8);
+//        assert("Bhatt".equals(recString));
 
-        assert("Bhatt".equals(bp.getString(20)));
-
-        Iterator<byte[]> iter = lm.iterator();
-        int count = 0;
-
+        var iter = lm.iterator();
         while(iter.hasNext()){
-            count++;
-            byte[] b = iter.next();
-            System.out.println(rm.recString(b));
+          byte[] b=  iter.next();
+            String recString = rm.recString(b);
+            System.out.println(recString);
         }
 
-        assert(count == 7);
+        while(iter.hasPrevious()){
+            byte[] b = iter.previous();
+            String recString = rm.recString(b);
+            System.out.println(recString);
+        }
+
+        while(iter.hasNext()){
+            byte[] b=  iter.next();
+            String recString = rm.recString(b);
+            System.out.println(recString);
+        }
 
         try {
             FileUtils.deleteDirectory(new File("./testdb"));

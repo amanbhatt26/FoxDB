@@ -4,6 +4,7 @@ import org.foxdb.buffer.Buffer;
 import org.foxdb.buffer.BufferManager;
 import org.foxdb.file.BlockID;
 import org.foxdb.file.Page;
+import org.foxdb.file.SlottedPage;
 import org.foxdb.log.LogManager;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
@@ -39,74 +40,54 @@ public class RecoveryManager {
     private int logRollback(int txId){
         byte[] b = new byte[2*Integer.BYTES];
         Page p = new Page(b);
+        p.position(0);
         p.setInt(logType.ROLLBACK.ordinal());
         p.setInt(txId);
         return lm.append(b);
     }
 
-    public int logUpdate(int txId, BlockID blkId, int offSet, int oldVal, int newVal){
-
-        int bytesNeeded = 8*Integer.BYTES + Page.stringBytesNeeded(blkId.getFileName());
+    public int logUpdate(int txId, BlockID blkId, int index, byte[] oldVal, byte[] newVal){
+        int bytesNeededByFilename = Page.stringBytesNeeded(blkId.getFileName());
+        int bytesNeeded = (Integer.BYTES* 6) + oldVal.length + newVal.length + bytesNeededByFilename;
         byte[] b = new byte[bytesNeeded];
         Page p = new Page(b);
+        p.position(0);
         p.setInt(logType.UPDATE.ordinal());
         p.setInt(txId);
         p.setString(blkId.getFileName());
         p.setInt(blkId.getBlockNumber());
-        p.setInt(offSet);
-        p.setInt(0); // type of value
-        p.setInt(oldVal);
-        p.setInt(newVal);
+        p.setInt(index);
+        p.setBytes(oldVal);
+        p.setBytes(newVal);
         return lm.append(b);
     }
-
-    public int logUpdate(int txId, BlockID blkId, int offSet, String oldVal, String newVal){
-
-        int bytesNeeded = 6*Integer.BYTES + Page.stringBytesNeeded(blkId.getFileName()) + Page.stringBytesNeeded(oldVal) + Page.stringBytesNeeded(newVal);
-        byte[] b = new byte[bytesNeeded];
-        Page p = new Page(b);
-        p.setInt(logType.UPDATE.ordinal());
-        p.setInt(txId);
-        p.setString(blkId.getFileName());
-        p.setInt(blkId.getBlockNumber());
-        p.setInt(offSet);
-        p.setInt(1); // type of value
-        p.setString(oldVal);
-        p.setString(newVal);
-        return lm.append(b);
-    }
-
 
     public void rollback(int txId){
-        Iterator<byte[]> logIterator = lm.iterator();
+        var logIterator = lm.iterator();
         while(logIterator.hasNext()){
             byte[] rec = logIterator.next();
             Page p = new Page(rec);
 
             p.position(0);
             int lType = p.getInt();
-
-            if(lType == logType.START.ordinal()){
+            int recTxId = p.getInt();
+            if(lType == logType.START.ordinal() && recTxId == txId){
                 break;
             }
 
-            int recTxId = p.getInt();
             if(recTxId != txId) continue;
+
             BlockID blk = new BlockID(p.getString(), p.getInt());
             Buffer buff = bm.pin(blk);
-            int offSet = p.getInt();
-            int type = p.getInt();
-            if(type == 0){
-                int oldval = p.getInt();
-                int newVal = p.getInt();
-                Page contents = buff.contents();
-                contents.setInt(offSet, oldval);
-            }else{
-                String oldVal = p.getString();
-                String newVal = p.getString();
-                Page contents = buff.contents();
-                contents.setString(offSet, oldVal);
-            }
+            int index = p.getInt();
+            byte[] oldVal = p.getBytes();
+            byte[] newVal = p.getBytes();
+
+            Page contents = buff.contents();
+            SlottedPage sp = new SlottedPage(contents);
+            sp.remove(index);
+            sp.defragment();
+            sp.put(index, oldVal);
             bm.unpin(buff);
         }
 
@@ -128,20 +109,12 @@ public class RecoveryManager {
                 txId = p.getInt();
                 String filename = p.getString();
                 int blockNUm = p.getInt();
-                int offSet = p.getInt();
-                int tp = p.getInt();
-                String recValue = "<UPDATE," + txId +"," + filename + "," + blockNUm + "," + offSet + "," + tp + ",";
-                if(tp == 0){
-                    int oldVal = p.getInt();
-                    int newVal = p.getInt();
-                    recValue += oldVal + "," + newVal + ">";
+                int index = p.getInt();
+                String recValue = "<UPDATE," + txId +"," + filename + "," + blockNUm + "," + index + ",";
+                byte[] oldVal = p.getBytes();
+                byte[] newVal = p.getBytes();
 
-                }else{
-                    String oldVal = p.getString();
-                    String newVal = p.getString();
-                    recValue += oldVal + "," + newVal + ">";
-                }
-
+                recValue += new String(oldVal, StandardCharsets.UTF_8) + "," + new String(newVal, StandardCharsets.UTF_8) + ">";
                 return recValue;
 
             case ROLLBACK:

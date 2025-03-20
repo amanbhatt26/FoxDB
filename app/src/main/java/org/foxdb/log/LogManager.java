@@ -3,6 +3,7 @@ package org.foxdb.log;
 import org.foxdb.file.BlockID;
 import org.foxdb.file.FileManager;
 import org.foxdb.file.Page;
+import org.foxdb.file.SlottedPage;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -10,7 +11,7 @@ import java.util.Iterator;
 
 public class LogManager {
     private FileManager fm;
-    private Page logPage;
+    private SlottedPage logPage;
     private BlockID currentBlock;
     private String logFile;
     private int latestLSN = 0;
@@ -19,14 +20,14 @@ public class LogManager {
     public LogManager(FileManager fm, String logFile){
         this.fm = fm;
         this.logFile = logFile;
-        this.logPage = new Page(fm.getBlockSize());
+        this.logPage = new SlottedPage(fm.getBlockSize());
         try{
             int fileLength = fm.fileLength(logFile);
             if(fileLength == 0){
                 this.currentBlock = appendNewBlock();
             }else{
                 this.currentBlock = new BlockID(logFile, fileLength -1);
-                fm.read(this.currentBlock, this.logPage);
+                fm.read(this.currentBlock, this.logPage.getPage());
             }
         }catch(IOException e){
             e.printStackTrace();
@@ -38,8 +39,8 @@ public class LogManager {
     private BlockID appendNewBlock() {
         try{
             BlockID blk = fm.appendBlock(this.logFile);
-            logPage.setInt(0, fm.getBlockSize());
-            fm.write(blk, logPage);
+            this.logPage = new SlottedPage(fm.getBlockSize());
+            fm.write(blk, this.logPage.getPage());
             return blk;
 
         }catch(IOException e){
@@ -50,18 +51,12 @@ public class LogManager {
     }
 
     public synchronized int append(byte[] logRec){
-        int boundary = logPage.getInt(0);
-        int recSize = logRec.length + Integer.BYTES;
+        int length = logPage.length();
 
-        if(boundary - recSize < Integer.BYTES){
-            flush();
-            currentBlock = appendNewBlock();
-            boundary = logPage.getInt(0);
+        if(!logPage.canInsert(logRec)){
+            this.currentBlock = appendNewBlock();
         }
-
-        int logLocation = boundary - recSize;
-        logPage.setBytes(logLocation, logRec);
-        logPage.setInt(0, logLocation);
+        this.logPage.put(length, logRec);
         latestLSN += 1;
         return latestLSN;
 
@@ -72,14 +67,14 @@ public class LogManager {
     }
     private void flush(){
         try{
-            fm.write(this.currentBlock, this.logPage);
+            fm.write(this.currentBlock, this.logPage.getPage());
         }catch(IOException e){
             e.printStackTrace();
             throw new RuntimeException();
         }
     }
 
-    public Iterator<byte[]> iterator(){
+    public LogIterator iterator(){
         flush();
         return new LogIterator(this.fm, this.logFile);
     }

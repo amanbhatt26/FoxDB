@@ -26,7 +26,7 @@ public class LogTest {
         }
 
 
-        Iterator<byte[]> iter  = lm.iterator();
+        var iter  = lm.iterator();
         try{
             int i = 4;
             while (iter.hasNext()) {
