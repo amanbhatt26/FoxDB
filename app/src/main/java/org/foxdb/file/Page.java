@@ -8,6 +8,10 @@ public class Page {
     private ByteBuffer bb;
     private static final Charset CHARSET = StandardCharsets.UTF_8;
     int offset = 0;
+
+    public int capacity(){
+        return bb.capacity();
+    }
     public void position(int offset){
         this.offset = offset;
     }
