@@ -56,7 +56,6 @@ public class Buffer {
 
     void unpin(){
         if(numPins > 0) numPins--;
-
     }
 
     public void setModified(int txn, int lsn){

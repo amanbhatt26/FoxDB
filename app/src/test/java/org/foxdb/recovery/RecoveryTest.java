@@ -27,14 +27,19 @@ public class RecoveryTest {
         BufferManager bm = new BufferManager(fm, lm, 3);
         RecoveryManager rm = new RecoveryManager(lm , bm);
 
+        BlockID blk20 =  new BlockID("./testdb/testfile", 20);
         rm.logStart(1);
-        rm.logUpdate(1, new BlockID("./testdb/testfile", 20), 0, "Aman".getBytes(StandardCharsets.UTF_8), "Bhatt".getBytes(StandardCharsets.UTF_8));
-
+        rm.logInsert(1, blk20, 0, "Aman".getBytes(StandardCharsets.UTF_8));
+        rm.logUpdate(1, blk20,0, "Aman".getBytes(StandardCharsets.UTF_8), "Bhatt".getBytes(StandardCharsets.UTF_8));
+        rm.logRemove(1, blk20, 0, "Aman".getBytes(StandardCharsets.UTF_8));
         lm.flush(rm.logCommit(1));
 
-        rm.logStart(2);
-        rm.logUpdate(2, new BlockID("./testdb/testfile", 22), 0, "Bhatt".getBytes(StandardCharsets.UTF_8), "Aman".getBytes(StandardCharsets.UTF_8));
 
+        BlockID blk22 = new BlockID("./testdb/testfile", 22);
+        rm.logStart(2);
+        rm.logInsert(2, blk22, 0, "Bhatt".getBytes(StandardCharsets.UTF_8));
+        rm.logUpdate(2,blk22, 0, "Bhatt".getBytes(StandardCharsets.UTF_8), "Aman".getBytes(StandardCharsets.UTF_8));
+        rm.logRemove(2, blk22, 0, "Aman".getBytes(StandardCharsets.UTF_8));
         rm.rollback(2);
 
 
@@ -49,13 +54,13 @@ public class RecoveryTest {
         while(iter.hasNext()){
           byte[] b=  iter.next();
             String recString = rm.recString(b);
-            System.out.println(recString);
+//            System.out.println(recString);
         }
 
         while(iter.hasPrevious()){
             byte[] b = iter.previous();
             String recString = rm.recString(b);
-            System.out.println(recString);
+//            System.out.println(recString);
         }
 
         while(iter.hasNext()){
@@ -70,5 +75,26 @@ public class RecoveryTest {
             throw new RuntimeException(e);
         }
 
+    }
+
+    @Test
+    public void TestRecoveryLogic(){
+        FileManager fm = new FileManager(new File("./testdb"), 4000);
+        LogManager lm = new LogManager(fm, "./testdb/test.log");
+        BufferManager bm = new BufferManager(fm, lm, 3);
+        RecoveryManager rm = new RecoveryManager(lm , bm);
+
+        Buffer buff = bm.pin(new BlockID("./testdb/testfile", 0));
+        SlottedPage sp = new SlottedPage(buff.contents());
+        sp.defragment();
+
+        buff.setModified(0, 0);
+        bm.flushAll(0);
+
+        try {
+            FileUtils.deleteDirectory(new File("./testdb"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -14,7 +14,7 @@ import java.util.Iterator;
 public class RecoveryManager {
     private LogManager lm;
     private BufferManager bm;
-    private enum logType{START, COMMIT,ROLLBACK, UPDATE};
+    private enum logType{START, COMMIT,ROLLBACK, UPDATE, INSERT, REMOVE};
     public RecoveryManager(LogManager lm, BufferManager bm){
         this.lm = lm;
         this.bm = bm;
@@ -62,33 +62,95 @@ public class RecoveryManager {
         return lm.append(b);
     }
 
+    public int logInsert(int txId, BlockID blkId, int index, byte[] val){
+        int bytesNeededByFilename = Page.stringBytesNeeded(blkId.getFileName());
+        int bytesNeeded = (Integer.BYTES* 5) + val.length + bytesNeededByFilename;
+        byte[] b = new byte[bytesNeeded];
+        Page p = new Page(b);
+
+        p.position(0);
+        p.setInt(logType.INSERT.ordinal());
+        p.setInt(txId);
+        p.setString(blkId.getFileName());
+        p.setInt(blkId.getBlockNumber());
+        p.setInt(index);
+        p.setBytes(val);
+
+        return lm.append(b);
+    }
+
+    public int logRemove(int txId, BlockID blkId, int index, byte[] val){
+        int bytesNeededByFilename = Page.stringBytesNeeded(blkId.getFileName());
+        int bytesNeeded = (Integer.BYTES* 5) + val.length + bytesNeededByFilename;
+        byte[] b = new byte[bytesNeeded];
+        Page p = new Page(b);
+
+        p.position(0);
+        p.setInt(logType.REMOVE.ordinal());
+        p.setInt(txId);
+        p.setString(blkId.getFileName());
+        p.setInt(blkId.getBlockNumber());
+        p.setInt(index);
+        p.setBytes(val);
+
+        return lm.append(b);
+    }
+    public void commit(int txId){
+        lm.flush(logCommit(txId));
+    }
     public void rollback(int txId){
         var logIterator = lm.iterator();
-        while(logIterator.hasNext()){
+        iteratorLoop : while(logIterator.hasNext()){
             byte[] rec = logIterator.next();
             Page p = new Page(rec);
 
             p.position(0);
             int lType = p.getInt();
             int recTxId = p.getInt();
-            if(lType == logType.START.ordinal() && recTxId == txId){
-                break;
-            }
-
             if(recTxId != txId) continue;
 
-            BlockID blk = new BlockID(p.getString(), p.getInt());
-            Buffer buff = bm.pin(blk);
-            int index = p.getInt();
-            byte[] oldVal = p.getBytes();
-            byte[] newVal = p.getBytes();
+            logType value = logType.values()[lType];
+            switch(value){
+                case START:
+                case ROLLBACK:
+                    break iteratorLoop;
+                case INSERT:{
+                    BlockID blk = new BlockID(p.getString(), p.getInt());
+                    Buffer buff = bm.pin(blk);
+                    SlottedPage sp = new SlottedPage(buff.contents());
+                    int index = p.getInt();
+                    sp.remove(index);
+                    bm.unpin(buff);
+                    break;
+                }
+                case REMOVE: {
+                    BlockID blk = new BlockID(p.getString(), p.getInt());
+                    Buffer buff = bm.pin(blk);
+                    SlottedPage sp = new SlottedPage(buff.contents());
+                    int index = p.getInt();
+                    byte[] val = p.getBytes();
+                    sp.defragment();
+                    sp.put(index, val);
+                    bm.unpin(buff);
+                    break;
+                }
+                case UPDATE: {
+                    BlockID blk = new BlockID(p.getString(), p.getInt());
+                    Buffer buff = bm.pin(blk);
+                    SlottedPage sp = new SlottedPage(buff.contents());
+                    int index = p.getInt();
+                    byte[] oldVal = p.getBytes();
+                    byte[] newVal = p.getBytes();
+                    sp.remove(index);
+                    sp.defragment();
+                    sp.put(index, oldVal);
 
-            Page contents = buff.contents();
-            SlottedPage sp = new SlottedPage(contents);
-            sp.remove(index);
-            sp.defragment();
-            sp.put(index, oldVal);
-            bm.unpin(buff);
+                    bm.unpin(buff);
+                    break;
+                }
+            }
+
+
         }
 
 
@@ -105,6 +167,28 @@ public class RecoveryManager {
             case START:
                 txId = p.getInt();
                 return "<START," + txId + ">";
+
+            case INSERT: {
+                txId = p.getInt();
+                String filename = p.getString();
+                int blockNUm = p.getInt();
+                int index = p.getInt();
+                String recValue = "<INSERT," + txId + "," + filename + "," + blockNUm + "," + index + ",";
+                byte[] val = p.getBytes();
+                recValue += new String(val, StandardCharsets.UTF_8) + ">";
+                return recValue;
+            }
+            case REMOVE:{
+                txId = p.getInt();
+                String filename = p.getString();
+                int blockNUm = p.getInt();
+                int index = p.getInt();
+                String recValue = "<REMOVE," + txId + "," + filename + "," + blockNUm + "," + index + ",";
+                byte[] val = p.getBytes();
+                recValue += new String(val, StandardCharsets.UTF_8) + ">";
+                return recValue;
+            }
+
             case UPDATE:
                 txId = p.getInt();
                 String filename = p.getString();
@@ -128,5 +212,9 @@ public class RecoveryManager {
         }
 
         return "";
+    }
+
+    public void doRecovery(){
+
     }
 }

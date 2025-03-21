@@ -54,6 +54,7 @@ public class LogManager {
         int length = logPage.length();
 
         if(!logPage.canInsert(logRec)){
+            flush();
             this.currentBlock = appendNewBlock();
         }
         this.logPage.put(length, logRec);
@@ -68,6 +69,7 @@ public class LogManager {
     private void flush(){
         try{
             fm.write(this.currentBlock, this.logPage.getPage());
+            lastSavedLSN = latestLSN;
         }catch(IOException e){
             e.printStackTrace();
             throw new RuntimeException();

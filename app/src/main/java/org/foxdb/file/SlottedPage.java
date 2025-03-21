@@ -5,6 +5,7 @@ public class SlottedPage {
     private Page p;
     public SlottedPage(Page p){
         this.p = p;
+        this.defragment();
     }
 
     public SlottedPage(int blockSize){
@@ -16,6 +17,7 @@ public class SlottedPage {
 
     public SlottedPage(byte[] b){
         this.p = new Page(b);
+        this.defragment();
     }
 
     public int length(){
@@ -90,6 +92,11 @@ public class SlottedPage {
         p.setInt(0, length-1);
     }
 
+    public void update(int index, byte[] b){
+        remove(index);
+        put(index,b);
+    }
+
     public byte[] get(int index){
         int offset = (index+2)*(Integer.BYTES);
         int valOffset = p.getInt(offset);
@@ -104,7 +111,12 @@ public class SlottedPage {
             spNew.put(i, this.get(i));
         }
 
-        this.p = spNew.getPage();
+        byte[] backingarray = this.p.getByteBuffer().array();
+        byte[] newBackingarray = spNew.getPage().getByteBuffer().array();
+
+        for(int i=0;i<backingarray.length;i++){
+            backingarray[i] = newBackingarray[i];
+        }
     }
 
     public Page getPage(){
