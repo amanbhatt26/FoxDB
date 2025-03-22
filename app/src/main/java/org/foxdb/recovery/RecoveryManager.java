@@ -3,9 +3,12 @@ package org.foxdb.recovery;
 import org.foxdb.buffer.Buffer;
 import org.foxdb.buffer.BufferManager;
 import org.foxdb.file.BlockID;
+import org.foxdb.file.FileManager;
 import org.foxdb.file.Page;
 import org.foxdb.file.SlottedPage;
 import org.foxdb.log.LogManager;
+
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 /* Recovery manager is responsible for rollback of transactions and recovery on db startup */
@@ -14,10 +17,12 @@ import java.util.Iterator;
 public class RecoveryManager {
     private LogManager lm;
     private BufferManager bm;
-    private enum logType{START, COMMIT,ROLLBACK, UPDATE, INSERT, REMOVE};
-    public RecoveryManager(LogManager lm, BufferManager bm){
+    private FileManager fm;
+    private enum logType{START, COMMIT,ROLLBACK, UPDATE, INSERT, REMOVE, APPEND};
+    public RecoveryManager(LogManager lm, BufferManager bm, FileManager fm){
         this.lm = lm;
         this.bm = bm;
+        this.fm = fm;
     }
 
     public int logStart(int txId){
@@ -95,6 +100,19 @@ public class RecoveryManager {
 
         return lm.append(b);
     }
+//    public int logAppend(int txId, String fileName){
+//        int bytesNeededByFilename = Page.stringBytesNeeded(fileName);
+//        int bytesNeeded = (Integer.BYTES*2) + bytesNeededByFilename;
+//        byte[] b = new byte[bytesNeeded];
+//        Page p = new Page(b);
+//
+//        p.position(0);
+//        p.setInt(logType.APPEND.ordinal());
+//        p.setString(fileName);
+//
+//        return lm.append(b);
+//
+//    }
     public void commit(int txId){
         lm.flush(logCommit(txId));
     }
@@ -148,6 +166,15 @@ public class RecoveryManager {
                     bm.unpin(buff);
                     break;
                 }
+//                case APPEND: {
+//                    String fileName = p.getString();
+//                    try {
+//                        fm.truncateLastBlock(fileName);
+//                    } catch (IOException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                    break;
+//                }
             }
 
 

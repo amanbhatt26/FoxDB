@@ -4,9 +4,11 @@ import org.foxdb.buffer.Buffer;
 import org.foxdb.buffer.BufferManager;
 import org.foxdb.concurrency.ConcurrencyManager;
 import org.foxdb.file.BlockID;
+import org.foxdb.file.FileManager;
 import org.foxdb.file.SlottedPage;
 import org.foxdb.recovery.RecoveryManager;
 
+import java.io.IOException;
 import java.util.*;
 
 public class Transaction {
@@ -17,27 +19,31 @@ public class Transaction {
         READ_REPEATABLE,
         SERIALIZABLE
     }
-    private ConcurrencyManager cm;
-    private RecoveryManager rm;
-    private Isolation isolation;
-    private BufferManager bm;
-    private int txId;
-    private Set<Buffer> pinnedBuffers;
-    private Set<BlockID> lockedBlocks;
-    public Transaction(Isolation isolation, ConcurrencyManager cm, RecoveryManager rm, BufferManager bm, int txId){
+    private final ConcurrencyManager cm;
+    private final RecoveryManager rm;
+    private final Isolation isolation;
+    private final BufferManager bm;
+    private final FileManager fm;
+    private final int txId;
+    private final Set<Buffer> pinnedBuffers;
+    private final Set<BlockID> lockedBlocks;
+    private final Set<String> lockedEOFs;
+    public Transaction(Isolation isolation, ConcurrencyManager cm, RecoveryManager rm, BufferManager bm, FileManager fm, int txId){
         /* tell recovery manager to log my starting */
         this.isolation = isolation;
         this.cm = cm;
         this.rm = rm;
         this.txId = txId;
         this.bm = bm;
+        this.fm = fm;
         this.pinnedBuffers = new HashSet();
         this.lockedBlocks = new HashSet();
+        this.lockedEOFs = new HashSet();
         rm.logStart(this.txId);
     }
 
-    public Transaction(ConcurrencyManager cm, RecoveryManager rm, BufferManager bm, int txId){
-        this(Isolation.READ_COMMITTED, cm,rm, bm, txId);
+    public Transaction(ConcurrencyManager cm, RecoveryManager rm, BufferManager bm, FileManager fm, int txId){
+        this(Isolation.READ_COMMITTED, cm,rm, bm, fm, txId);
     }
 
     public byte[] read(BlockID blk,int slotIndex){
@@ -106,6 +112,30 @@ public class Transaction {
         cleanUp();
     }
 
+    public BlockID appendNewBlock(String fileName){
+        // Exclusive lock on EOF marker
+        cm.xLock(fileName, txId);
+        this.lockedEOFs.add(fileName);
+        try {
+            return fm.appendBlock(fileName);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public int fileLength(String fileName){
+        // shared lock on EOF marker
+        if(isolation == Isolation.SERIALIZABLE) {
+            cm.sLock(fileName, txId);
+            this.lockedEOFs.add(fileName);
+        }
+        try {
+            return fm.fileLength(fileName);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void cleanUp(){
         /* let go of all the held locks */
         Iterator<BlockID> blockIter = this.lockedBlocks.iterator();
@@ -117,6 +147,11 @@ public class Transaction {
         Iterator<Buffer> buffIter = this.pinnedBuffers.iterator();
         while(buffIter.hasNext()){
             bm.unpin(buffIter.next());
+        }
+
+        Iterator<String> eofIter = this.lockedEOFs.iterator();
+        while(eofIter.hasNext()){
+            cm.unlock(eofIter.next(), txId);
         }
     }
 

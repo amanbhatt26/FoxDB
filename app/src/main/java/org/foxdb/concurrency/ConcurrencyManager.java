@@ -9,8 +9,11 @@ import java.util.Map;
 
 public class ConcurrencyManager {
 
-    private Map<BlockID, List<Integer>> sLocks = new HashMap();
-    private Map<BlockID, Integer> xLocks = new HashMap();
+    private final Map<BlockID, List<Integer>> sLocks = new HashMap<>();
+    private final Map<BlockID, Integer> xLocks = new HashMap<>();
+
+    private final Map<String, List<Integer>> sLocksEOF = new HashMap<>();
+    private final Map<String, Integer> xLocksEOF = new HashMap<>();
 
     public synchronized void sLock(BlockID blk, int txNum){
 
@@ -23,7 +26,7 @@ public class ConcurrencyManager {
                 throw new RuntimeException(e);
             }
         }
-        List<Integer> lockHolder = sLocks.getOrDefault(blk, new ArrayList());
+        List<Integer> lockHolder = sLocks.getOrDefault(blk, new ArrayList<Integer>());
         if(!lockHolder.contains(txNum)) lockHolder.add(txNum);
         sLocks.put(blk, lockHolder);
     }
@@ -49,11 +52,10 @@ public class ConcurrencyManager {
         if(sLocks.containsKey(blk)){
             List<Integer> lockHolders = sLocks.get(blk);
             if(lockHolders.contains(txNum)){
-               int index = lockHolders.indexOf(txNum);
-               lockHolders.remove(index);
+                lockHolders.remove((Integer) txNum);
             }
 
-            if(lockHolders.size() == 0){
+            if(lockHolders.isEmpty()){
                 sLocks.remove(blk);
             }
         }
@@ -61,15 +63,50 @@ public class ConcurrencyManager {
         notifyAll();
     }
 
-//    public synchronized void waitOnXLock(BlockID blk, int txNum){
-//
-//        while(xLocks.containsKey(blk)){
-//            try{
-//                wait();
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
-//    }
+    public synchronized void sLock(String fileName, int txNum){
 
+        if(sLocksEOF.containsKey(fileName) && sLocksEOF.get(fileName).contains(txNum)) return; // if current txn already have Slock, no need to take again
+        while(xLocksEOF.containsKey(fileName)){
+            if(xLocksEOF.get(fileName) == txNum) break; // if current txn has xLock , let it also have sLock
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        List<Integer> lockHolder = sLocksEOF.getOrDefault(fileName, new ArrayList<Integer>());
+        if(!lockHolder.contains(txNum)) lockHolder.add(txNum);
+        sLocksEOF.put(fileName, lockHolder);
+    }
+
+    public synchronized void xLock(String blk, int txNum){
+
+        if(xLocksEOF.containsKey(blk) && xLocksEOF.get(blk) == txNum) return; // if current txn already has Xlock, no need to take again
+        while(sLocksEOF.containsKey(blk) || xLocksEOF.containsKey(blk)){
+            if(!xLocksEOF.containsKey(blk) && sLocksEOF.containsKey(blk) && sLocksEOF.get(blk).contains(txNum)) break; // if current txn already has an sLock and noOne has xLock , take xLock
+            try{
+                wait();
+            } catch(InterruptedException e){
+                throw new RuntimeException(e);
+            }
+        }
+
+        xLocksEOF.put(blk, txNum);
+    }
+
+
+    public synchronized void unlock(String blk, int txNum){
+        xLocksEOF.remove(blk);
+        if(sLocksEOF.containsKey(blk)){
+            List<Integer> lockHolders = sLocksEOF.get(blk);
+            if(lockHolders.contains(txNum)){
+                lockHolders.remove((Integer) txNum);
+            }
+
+            if(lockHolders.isEmpty()){
+                sLocksEOF.remove(blk);
+            }
+        }
+        notifyAll();
+    }
 }

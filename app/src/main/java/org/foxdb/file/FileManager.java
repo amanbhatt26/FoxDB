@@ -34,7 +34,13 @@ public class FileManager {
     public synchronized void read(BlockID bid, Page p) throws IOException{
 
         RandomAccessFile f= getFile(bid.getFileName());
-        f.seek(bid.getBlockNumber()*blockSize);
+
+        int blockNumber = bid.getBlockNumber();
+        String fileName = bid.getFileName();
+        if(blockNumber >= fileLength(fileName) || blockNumber < 0){
+            throw new IOException("Cannot read non existing block: " + blockNumber);
+        }
+        f.seek((long) bid.getBlockNumber() *blockSize);
 
         ByteBuffer bb = p.getByteBuffer();
         f.read(bb.array());
@@ -42,6 +48,12 @@ public class FileManager {
 
     public synchronized  void write(BlockID bid, Page p) throws IOException{
         RandomAccessFile f= getFile(bid.getFileName());
+
+        int blockNumber = bid.getBlockNumber();
+        String fileName = bid.getFileName();
+        if(blockNumber >= fileLength(fileName) || blockNumber < 0){
+            throw new IOException("Cannot write to non existing block: " + blockNumber);
+        }
         f.seek(bid.getBlockNumber()*blockSize);
         ByteBuffer bb = p.getByteBuffer();
         f.write(bb.array());
@@ -58,9 +70,8 @@ public class FileManager {
     public BlockID appendBlock(String fileName) throws IOException{
         RandomAccessFile file = getFile(fileName);
         int length = fileLength(fileName);
-        BlockID block = new BlockID(fileName, length);
-        write(block, new Page(blockSize));
-
+        file.setLength((long)(length+1)*blockSize);
+        BlockID block = new BlockID(fileName, fileLength(fileName) - 1);
         return block;
     }
 

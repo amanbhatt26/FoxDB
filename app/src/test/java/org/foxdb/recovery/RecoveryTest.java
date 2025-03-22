@@ -25,7 +25,7 @@ public class RecoveryTest {
         FileManager fm = new FileManager(new File("./testdb"), 4000);
         LogManager lm = new LogManager(fm, "./testdb/test.log");
         BufferManager bm = new BufferManager(fm, lm, 3);
-        RecoveryManager rm = new RecoveryManager(lm , bm);
+        RecoveryManager rm = new RecoveryManager(lm , bm, fm);
 
         BlockID blk20 =  new BlockID("./testdb/testfile", 20);
         rm.logStart(1);
@@ -82,7 +82,7 @@ public class RecoveryTest {
         FileManager fm = new FileManager(new File("./testdb"), 4000);
         LogManager lm = new LogManager(fm, "./testdb/test.log");
         BufferManager bm = new BufferManager(fm, lm, 3);
-        RecoveryManager rm = new RecoveryManager(lm , bm);
+        RecoveryManager rm = new RecoveryManager(lm , bm, fm);
 
         Buffer buff = bm.pin(new BlockID("./testdb/testfile", 0));
         SlottedPage sp = new SlottedPage(buff.contents());
