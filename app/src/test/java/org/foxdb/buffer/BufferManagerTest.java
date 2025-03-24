@@ -20,8 +20,15 @@ public class BufferManagerTest {
 
         Page p = new Page(400);
         p.setInt(20, 100);
-
-        BlockID blkid = new BlockID("./testdb/TestFile", 20);
+        try {
+            fm.appendBlock("./testdb/TestFile");
+            fm.appendBlock("./testdb/TestFile");
+            fm.appendBlock("./testdb/TestFile");
+            fm.appendBlock("./testdb/TestFile");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        BlockID blkid = new BlockID("./testdb/TestFile", 0);
         try{
             fm.write(blkid, p);
         }catch(IOException e){
@@ -41,11 +48,11 @@ public class BufferManagerTest {
 
         buff.unpin();
 
-        bm.pin(new BlockID("./testdb/TestFile", 22));
-        bm.pin(new BlockID("./testdb/TestFile", 25));
+        bm.pin(new BlockID("./testdb/TestFile", 1));
+        bm.pin(new BlockID("./testdb/TestFile", 2));
 
         try{
-            bm.pin(new BlockID("TestFile", 26));
+            bm.pin(new BlockID("TestFile", 3));
         }catch(RuntimeException e){
             assert(true);
         }catch(Exception e){

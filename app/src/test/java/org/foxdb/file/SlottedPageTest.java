@@ -51,7 +51,8 @@ public class SlottedPageTest {
 
 
         try {
-            fm.write(new BlockID("./testdb/testfile", 20), sp.getPage());
+            fm.appendBlock("./testdb/testfile");
+            fm.write(new BlockID("./testdb/testfile", 0), sp.getPage());
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -59,7 +60,7 @@ public class SlottedPageTest {
 
         Page newPage = new Page(fm.getBlockSize());
         try {
-            fm.read(new BlockID("./testdb/testfile", 20), newPage);
+            fm.read(new BlockID("./testdb/testfile", 0), newPage);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -26,19 +26,20 @@ public class TransactionTest {
         RecoveryManager rm = new RecoveryManager(lm, bm, fm);
         ConcurrencyManager cm = new ConcurrencyManager();
 
+
         Transaction tx1 = new Transaction(cm, rm, bm,fm, 1);
-        BlockID blk10 = new BlockID("./testdb/testfile", 10);
+        try {
+            fm.appendBlock("./testdb/testfile");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        BlockID blk10 = new BlockID("./testdb/testfile", 0);
 
         tx1.insert(blk10, 0, "Aman".getBytes(StandardCharsets.UTF_8));
-
         tx1.insert(blk10, 1, "Bhatt".getBytes(StandardCharsets.UTF_8));
-
         tx1.update(blk10, 0, "Varadrajan".getBytes(StandardCharsets.UTF_8));
-
         tx1.insert(blk10, 1, "Sunshine".getBytes(StandardCharsets.UTF_8));
-
         tx1.commit();
-
         iterateBlock(blk10, bm,rm);
 
 
@@ -86,13 +87,18 @@ public class TransactionTest {
 
     @Test
     public void TestMultiThreadWritersTransaction(){
-        BlockID blk10 = new BlockID("./testdb/testfile", 10);
+        BlockID blk10 = new BlockID("./testdb/testfile", 0);
         FileManager fm = new FileManager(new File("./testdb"), 4000);
         LogManager lm = new LogManager(fm, "./testdb/test.log");
         BufferManager bm = new BufferManager(fm, lm, 10);
         RecoveryManager rm = new RecoveryManager(lm, bm, fm);
         ConcurrencyManager cm = new ConcurrencyManager();
 
+        try {
+            fm.appendBlock("./testdb/testfile");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         Thread t = new Thread(()->{
             Transaction tx1 = new Transaction(cm, rm, bm, fm,1);
             tx1.insert(blk10, 0, "Aman".getBytes(StandardCharsets.UTF_8));
@@ -149,14 +155,20 @@ public class TransactionTest {
 
     @Test
     public void TestMultiThreadReadWriteTransaction(){
-        BlockID blk10 = new BlockID("./testdb/testfile", 10);
-        BlockID blk20 = new BlockID("./testdb/testfile", 20);
+        BlockID blk10 = new BlockID("./testdb/testfile", 0);
+        BlockID blk20 = new BlockID("./testdb/testfile", 1);
         FileManager fm = new FileManager(new File("./testdb"), 4000);
         LogManager lm = new LogManager(fm, "./testdb/test.log");
         BufferManager bm = new BufferManager(fm, lm, 10);
         RecoveryManager rm = new RecoveryManager(lm, bm, fm);
         ConcurrencyManager cm = new ConcurrencyManager();
 
+        try{
+            fm.appendBlock("./testdb/testfile");
+            fm.appendBlock("./testdb/testfile");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         Thread t = new Thread(()->{
             Transaction tx1 = new Transaction(cm, rm, bm, fm,1);
             tx1.insert(blk10, 0, "Aman".getBytes(StandardCharsets.UTF_8));
@@ -213,14 +225,19 @@ public class TransactionTest {
 
     @Test
     public void TestMultiThreadReadersTransaction(){
-        BlockID blk10 = new BlockID("./testdb/testfile", 10);
-        BlockID blk20 = new BlockID("./testdb/testfile", 20);
+        BlockID blk10 = new BlockID("./testdb/testfile", 0);
+        BlockID blk20 = new BlockID("./testdb/testfile", 1);
         FileManager fm = new FileManager(new File("./testdb"), 4000);
         LogManager lm = new LogManager(fm, "./testdb/test.log");
         BufferManager bm = new BufferManager(fm, lm, 10);
         RecoveryManager rm = new RecoveryManager(lm, bm, fm);
         ConcurrencyManager cm = new ConcurrencyManager();
-
+        try{
+            fm.appendBlock("./testdb/testfile");
+            fm.appendBlock("./testdb/testfile");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         Thread t = new Thread(()->{
             Transaction tx1 = new Transaction(cm, rm, bm,fm, 1);
             tx1.insert(blk10, 0, "Aman".getBytes(StandardCharsets.UTF_8));
@@ -310,8 +327,6 @@ public class TransactionTest {
         tx1.insert(blk10, 0, tx1.read(blk10, 1));
         tx1.rollback();
 
-
-
         bm.flushAll(1);
 
         Transaction tx2 = new Transaction(Transaction.Isolation.SERIALIZABLE,cm, rm, bm, fm, 2);
@@ -328,8 +343,56 @@ public class TransactionTest {
     }
 
     @Test
-    public void MultiThreadFileEOF(){
+    public void MultiThreadEOFTest(){
+        BlockID blk10 = new BlockID("./testdb/testfile", 0);
+        FileManager fm = new FileManager(new File("./testdb"), 4000);
+        LogManager lm = new LogManager(fm, "./testdb/test.log");
+        BufferManager bm = new BufferManager(fm, lm, 10);
+        RecoveryManager rm = new RecoveryManager(lm, bm, fm);
+        ConcurrencyManager cm = new ConcurrencyManager();
+
+        try {
+            fm.appendBlock("./testdb/testfile");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        Thread t = new Thread(()->{
+            Transaction tx1 = new Transaction(cm, rm, bm, fm,1);
+            tx1.appendNewBlock("./testdb/testfile");
+            try{
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            tx1.commit();
+        });
+
+        Thread t2 = new Thread(()->{
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            Transaction tx2 = new Transaction(Transaction.Isolation.SERIALIZABLE,cm, rm, bm, fm,2);
+            System.out.println(tx2.fileLength("./testdb/testfile"));
+        });
+
+        t.start();
+        t2.start();
+
+
+        try {
+            t.join();
+            t2.join();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        try {
+            FileUtils.deleteDirectory(new File("./testdb"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
     }
-
 }

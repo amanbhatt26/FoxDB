@@ -21,7 +21,12 @@ public class BufferTest {
         p.setInt(22, 49);
         Buffer bf = new Buffer(fm , lm);
 
-        BlockID blkid = new BlockID("./testdb/testFile", 20);
+        try {
+            fm.appendBlock("./testdb/testFile");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        BlockID blkid = new BlockID("./testdb/testFile", 0);
         try{
             fm.write(blkid, p);
 

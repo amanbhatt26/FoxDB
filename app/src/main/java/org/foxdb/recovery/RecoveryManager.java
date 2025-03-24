@@ -10,7 +10,9 @@ import org.foxdb.log.LogManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 /* Recovery manager is responsible for rollback of transactions and recovery on db startup */
 /* RecoveryManager also logs all the log records as the transaction proceeds so it can do recovery and rollbacks */
 
@@ -242,6 +244,79 @@ public class RecoveryManager {
     }
 
     public void doRecovery(){
+        var logIterator = lm.iterator();
+
+        Set<Integer> completedTransactions = new HashSet<>();
+        Set<Integer> rolledbackTransactions = new HashSet<>();
+
+        while(logIterator.hasNext()){
+            byte[] rec = logIterator.next();
+            Page p = new Page(rec);
+
+            p.position(0);
+            int lType = p.getInt();
+            int recTxId = p.getInt();
+
+            logType value = logType.values()[lType];
+            switch(value){
+                case ROLLBACK:
+                    rolledbackTransactions.add(recTxId);
+                    break;
+                case COMMIT:
+                    completedTransactions.add(recTxId);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        while(logIterator.hasPrevious()){
+            byte[] rec = logIterator.previous();
+            Page p = new Page(rec);
+
+            p.position(0);
+            int lType = p.getInt();
+            int recTxId = p.getInt();
+            if(!completedTransactions.contains(recTxId)) continue;
+            logType value = logType.values()[lType];
+
+            switch(value){
+                case INSERT:{
+                    BlockID blk = new BlockID(p.getString(), p.getInt());
+                    Buffer buff = bm.pin(blk);
+                    SlottedPage sp = new SlottedPage(buff.contents());
+                    int index = p.getInt();
+                    byte[] b = p.getBytes();
+                    sp.defragment();
+                    sp.put(index, b);
+                    bm.unpin(buff);
+                    break;
+                }
+                case REMOVE: {
+                    BlockID blk = new BlockID(p.getString(), p.getInt());
+                    Buffer buff = bm.pin(blk);
+                    SlottedPage sp = new SlottedPage(buff.contents());
+                    int index = p.getInt();
+                    sp.remove(index);
+                    bm.unpin(buff);
+                    break;
+                }
+                case UPDATE: {
+                    BlockID blk = new BlockID(p.getString(), p.getInt());
+                    Buffer buff = bm.pin(blk);
+                    SlottedPage sp = new SlottedPage(buff.contents());
+                    int index = p.getInt();
+                    byte[] oldVal = p.getBytes();
+                    byte[] newVal = p.getBytes();
+                    sp.update(index, newVal);
+                    sp.defragment();
+                    bm.unpin(buff);
+                    break;
+                }
+            }
+
+        }
+
 
     }
 }

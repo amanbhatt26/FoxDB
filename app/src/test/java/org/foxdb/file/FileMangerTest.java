@@ -21,7 +21,8 @@ public class FileMangerTest {
         try{
             Page p = new Page(400);
             p.setString(20, "Aman Bhatt");
-            fm.write(new BlockID("./testdb/testtable.tbl", 27), p);
+            fm.appendBlock("./testdb/testtable.tbl");
+            fm.write(new BlockID("./testdb/testtable.tbl", 0), p);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -34,7 +35,7 @@ public class FileMangerTest {
         FileManager fm = new FileManager(new File("./testdb"), 400);
         Page p = new Page(400);
         try {
-            fm.read(new BlockID("./testdb/testtable.tbl", 27), p);
+            fm.read(new BlockID("./testdb/testtable.tbl", 0), p);
             String str = p.getString(20);
             assert(str.equals("Aman Bhatt"));
         } catch (IOException e) {
