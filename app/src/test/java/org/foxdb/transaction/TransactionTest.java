@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TransactionTest {
 
@@ -64,6 +66,19 @@ public class TransactionTest {
             throw new RuntimeException(e);
         }
     }
+    private List<String> iterateBlock(BlockID blk10, BufferManager bm, RecoveryManager rm){
+        List<String> elements = new ArrayList();
+        Buffer buff = bm.pin(blk10);
+        SlottedPage sp =new SlottedPage(buff.contents());
+        for(int i=0;i<sp.length();i++){
+            byte[] recBytes = sp.get(i);
+            String s = recBytes==null ? "null": new String(recBytes, StandardCharsets.UTF_8);
+            System.out.println(s);
+            elements.add(s);
+        }
+
+        return elements;
+    }
 
     private void iterateLogs(LogManager lm, RecoveryManager rm){
         var logIter = lm.iterator();
@@ -75,14 +90,7 @@ public class TransactionTest {
         System.out.println("*******************************");
     }
 
-    private void iterateBlock(BlockID blk10, BufferManager bm, RecoveryManager rm){
-        Buffer buff = bm.pin(blk10);
-        SlottedPage sp =new SlottedPage(buff.contents());
-        for(int i=0;i<sp.length();i++){
-            String s = new String(sp.get(i), StandardCharsets.UTF_8);
-            System.out.println(s);
-        }
-    }
+
 
 
     @Test

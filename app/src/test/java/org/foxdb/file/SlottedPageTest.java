@@ -70,7 +70,7 @@ public class SlottedPageTest {
 
         for(int i=0;i<spnew.length();i++){
             byte[] recBytes = spnew.get(i);
-            String rec = new String(recBytes, StandardCharsets.UTF_8);
+            String rec = recBytes == null ? "null"  : new String(recBytes, StandardCharsets.UTF_8);
             System.out.println(rec);
         }
 

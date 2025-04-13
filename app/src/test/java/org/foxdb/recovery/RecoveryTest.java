@@ -102,6 +102,7 @@ public class RecoveryTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
         Thread t = new Thread(()->{
             Transaction tx1 = new Transaction(cm, rm, bm, fm,1);
             tx1.insert(blk10, 0, "Aman".getBytes(StandardCharsets.UTF_8));
@@ -131,17 +132,17 @@ public class RecoveryTest {
             throw new RuntimeException(e);
         }
 
-//        System.out.println("Before Crash *************************************");
+        System.out.println("Before Crash *************************************");
         List<String> beforeCrash = iterateBlock(blk10, bm, rm);
 
 
-//        System.out.println("After Crash ***************************************");
+        System.out.println("After Crash ***************************************");
 
         BufferManager bm2 = new BufferManager(fm, lm, 10);
         iterateBlock(blk10, bm2, rm);
 
 
-//        System.out.println("After recovery *************************************");
+        System.out.println("After recovery *************************************");
         LogManager lm2 = new LogManager(fm, "./testdb/test.log");
         RecoveryManager rm2 = new RecoveryManager(lm2, bm2, fm);
         rm2.doRecovery();
@@ -163,7 +164,9 @@ public class RecoveryTest {
         Buffer buff = bm.pin(blk10);
         SlottedPage sp =new SlottedPage(buff.contents());
         for(int i=0;i<sp.length();i++){
-            String s = new String(sp.get(i), StandardCharsets.UTF_8);
+            byte[] recBytes = sp.get(i);
+            String s = recBytes==null ? "null": new String(recBytes, StandardCharsets.UTF_8);
+            System.out.println(s);
             elements.add(s);
         }
 

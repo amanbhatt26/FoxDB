@@ -1,5 +1,7 @@
 package org.foxdb.file;
 
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 public class SlottedPage {
 
     private Page p;
@@ -42,17 +44,16 @@ public class SlottedPage {
 
     /* will insert the byte array into the desired index inside the slotted page assuming it can be inserted */
     public void put(int index, byte[] b){
-
-        int bytesNeeded = b.length + Integer.BYTES;
         p.position(0);
-
         int length = p.getInt();
         int lastOffset = p.getInt();
 
+        int bytesNeeded = b==null ? 0: b.length + Integer.BYTES;
+
 
         // insert byte array into the page
-        int offset = lastOffset - bytesNeeded;
-        p.setBytes(offset, b);
+        int offset = b==null ? -1: lastOffset - bytesNeeded;
+        if(b!=null) p.setBytes(offset, b);
 
         if(index >= length){
             int indexOffset = (length + 2)*(Integer.BYTES);
@@ -75,31 +76,58 @@ public class SlottedPage {
 
         /* update slot array metadata */
         p.setInt(0 ,length+1);
-        p.setInt(Integer.BYTES, offset);
-
+        p.setInt(Integer.BYTES, b==null ? lastOffset:offset);
     }
 
+
+    /* just mark the slot as empty instead of deleting the slot and shifting elements */
     public void remove(int index){
         if(index < 0 || index >= length()) return;
-        int length = length();
-        int i;
-        for(i=index;i<length-1;i++){
-            int curIndexOffset = (2+i)*(Integer.BYTES);
-            int nextIndexOffset = curIndexOffset + Integer.BYTES;
-            p.setInt(curIndexOffset, p.getInt(nextIndexOffset));
-        }
-
-        p.setInt(0, length-1);
+        int indexOffSet = (2+index)*(Integer.BYTES);
+        p.setInt(indexOffSet, -1);
     }
 
+    // older implementation with deleting slots
+//    public void remove(int index){
+//        if(index < 0 || index >= length()) return;
+//        int length = length();
+//        int i;
+//        for(i=index;i<length-1;i++){
+//            int curIndexOffset = (2+i)*(Integer.BYTES);
+//            int nextIndexOffset = curIndexOffset + Integer.BYTES;
+//            p.setInt(curIndexOffset, p.getInt(nextIndexOffset));
+//        }
+//
+//        p.setInt(0, length-1);
+//    }
+
     public void update(int index, byte[] b){
+
         remove(index);
-        put(index,b);
+        defragment();
+
+        p.position(0);
+        int length = p.getInt();
+        int lastOffset = p.getInt();
+
+        int bytesNeeded = b.length + Integer.BYTES;
+
+
+        // insert byte array into the page
+        int offset = lastOffset - bytesNeeded;
+        p.setBytes(offset, b);
+        int indexOffset = (index + 2)*(Integer.BYTES);
+        p.setInt(indexOffset, offset);
+
+
+        /* update slot array metadata */
+        p.setInt(Integer.BYTES, offset);
     }
 
     public byte[] get(int index){
         int offset = (index+2)*(Integer.BYTES);
         int valOffset = p.getInt(offset);
+        if(valOffset == -1) return null;
         return p.getBytes(valOffset);
     }
 
