@@ -135,6 +135,21 @@ public class Transaction {
             throw new RuntimeException(e);
         }
     }
+    public int slotArrayLength(BlockID blk){
+        try {
+            Buffer buff = bm.pin(blk);
+            pinnedBuffers.add(buff);
+            // shared lock on EOF marker
+            if(isolation == Isolation.SERIALIZABLE) {
+                cm.sLock(blk, txId);
+                this.lockedBlocks.add(blk);
+            }
+            SlottedPage sp = new SlottedPage(buff.contents());
+            return sp.length();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private void cleanUp(){
         /* let go of all the held locks */

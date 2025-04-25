@@ -86,7 +86,7 @@ public class Page {
         bb.put(b);
     }
 
-    protected ByteBuffer getByteBuffer(){
+    public ByteBuffer getByteBuffer(){
         return bb;
     }
 

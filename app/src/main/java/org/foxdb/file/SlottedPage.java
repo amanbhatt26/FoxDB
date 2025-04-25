@@ -22,6 +22,7 @@ public class SlottedPage {
         this.defragment();
     }
 
+    /* Returns the length of the slot array */
     public int length(){
         return this.p.getInt(0);
     }
