@@ -4,7 +4,7 @@ import org.foxdb.file.BlockID;
 import org.foxdb.file.Page;
 
 public class RecordID {
-    public static final int SIZE=20;
+    public static final int SIZE=40;
     private BlockID blkid;
     private int slotNumber;
 
@@ -13,6 +13,10 @@ public class RecordID {
         this.slotNumber = slotNumber;
     }
 
+    public RecordID(RecordID other){
+        this.blkid = new BlockID(other.getBlockID().getFileName(), other.getBlockID().getBlockNumber());
+        this.slotNumber = other.slotNumber;
+    }
     public RecordID(byte[] b){
         Page p = new Page(b);
         p.position(0);

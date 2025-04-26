@@ -46,6 +46,22 @@ public class Transaction {
         this(Isolation.READ_COMMITTED, cm,rm, bm, fm, txId);
     }
 
+    public boolean fitCheck(BlockID blk, byte[] b){
+        Buffer buff = bm.pin(blk);
+        pinnedBuffers.add(buff);
+        if(isolation !=Isolation.READ_UNCOMMITTED) {
+            cm.sLock(blk, txId);
+            this.lockedBlocks.add(blk);
+        }
+        SlottedPage sp = new SlottedPage(buff.contents());
+
+        if(isolation  == Isolation.READ_COMMITTED){
+            cm.unlock(blk, txId);
+            this.lockedBlocks.remove(blk);
+        }
+
+        return sp.canInsert(b);
+    }
     public byte[] read(BlockID blk,int slotIndex){
         Buffer buff = bm.pin(blk);
         pinnedBuffers.add(buff);
@@ -130,6 +146,7 @@ public class Transaction {
             this.lockedEOFs.add(fileName);
         }
         try {
+            int fLength = fm.fileLength(fileName);
             return fm.fileLength(fileName);
         } catch (IOException e) {
             throw new RuntimeException(e);

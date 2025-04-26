@@ -7,6 +7,9 @@ import java.util.Map;
 
 public class Record {
     private RecordID rID;
+
+
+
     private Schema schema;
     private Map<String,Integer> intFields;
     private Map<String,String> stringFields;
@@ -18,6 +21,10 @@ public class Record {
         intFields = new HashMap<>();
         stringFields = new HashMap<>();
         this.layout = new Layout(schema);
+    }
+
+    public Schema getSchema() {
+        return schema;
     }
 
     public String[] fields(){
@@ -41,7 +48,7 @@ public class Record {
 
     public String readString(String name){
         if(schema.contains(name) && schema.type(name) == Schema.Type.STRING){
-            return stringFields.getOrDefault(name, null);
+            return stringFields.getOrDefault(name, "");
         }
         throw new RuntimeException("String Field of name " + name + " not present");
     }
@@ -49,6 +56,7 @@ public class Record {
     public void updateInt(String name, int val){
         if(schema.contains(name) && schema.type(name) == Schema.Type.INTEGER) {
             intFields.put(name,val);
+            return;
         }
         throw new RuntimeException("Int Field of name " + name + " not present");
     }
@@ -56,7 +64,12 @@ public class Record {
     public void updateString(String name,String val){
         if(schema.contains(name) && schema.type(name) == Schema.Type.STRING){
             stringFields.put(name,val);
+            return;
         }
         throw new RuntimeException("String Field of name " + name + " not present");
+    }
+
+    public RecordID getRecordID() {
+        return this.rID;
     }
 }
